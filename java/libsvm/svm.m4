@@ -6,8 +6,7 @@ changecom(`//', )
 package libsvm;
 import java.io.*;
 import java.util.*;
-//TODO import org.slf4j.Logger;
-//TODO import org.slf4j.LoggerFactory;
+import java.util.concurrent.*;
 
 //
 // Kernel Cache
@@ -1163,16 +1162,33 @@ class SVC_Q extends Kernel
 			QD[i] = kernel_function(i,i);
 	}
 
-	Qfloat[] get_Q(int i, int len)
+	Qfloat[] get_Q(final int i, final int len)
 	{
-		Qfloat[][] data = new Qfloat[1][];
-		int start, j;
+		final Qfloat[][] data = new Qfloat[1][];
+		final int start;
 		if((start = cache.get_data(i,data,len)) < len)
 		{
-// based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
-// #pragma omp parallel for private(j)
-			for(j=start;j<len;j++)
-				data[0][j] = (Qfloat)(y[i]*y[j]*kernel_function(i,j));
+            // parallel based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
+			// for(j=start;j<len;j++)
+            int perProc = (len - start) / svm.PROC_COUNT;
+            final CountDownLatch latch = new CountDownLatch(svm.PROC_COUNT);
+            for (int j = 0; j < svm.PROC_COUNT; j++) {
+                final int begin = start + (j * perProc);
+                final int end = (j == svm.PROC_COUNT - 1) ? len - 1 : start + ((j + 1) * perProc) - 1;
+                svm.EXEC_SERV.submit(new Runnable() {
+                    public void run() {
+                        for (int j = begin; j <= end; j++) {
+                            data[0][j] = (Qfloat)(y[i]*y[j]*kernel_function(i,j));
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                System.err.println("InterruptedException: " + e.getMessage());
+            }
 		}
 		return data[0];
 	}
@@ -1300,7 +1316,8 @@ public class svm {
 	public static final int LIBSVM_VERSION=320; 
 	public static final Random rand = new Random();
 
-//TODO 	private static final Logger LOG = LoggerFactory.getLogger(svm.class);
+	public static final int PROC_COUNT = Runtime.getRuntime().availableProcessors();
+	public static final ExecutorService EXEC_SERV = Executors.newFixedThreadPool(PROC_COUNT);
 
 	private static svm_print_interface svm_print_stdout = new svm_print_interface()
 	{
@@ -1316,8 +1333,6 @@ public class svm {
 	static void info(String s) 
 	{
 		svm_print_string.print(s);
-//TODO LOG.info(s);
-//TODO LOG.printf(Level.INFO, s)
 	}
 
 	private static void solve_c_svc(svm_problem prob, svm_parameter param,
@@ -2328,7 +2343,7 @@ public class svm {
 		}
 	}
 
-	public static double svm_predict_values(svm_model model, svm_node[] x, double[] dec_values)
+	public static double svm_predict_values(final svm_model model, final svm_node[] x, double[] dec_values)
 	{
 		int i;
 		if(model.param.svm_type == svm_parameter.ONE_CLASS ||
@@ -2352,11 +2367,28 @@ public class svm {
 			int nr_class = model.nr_class;
 			int l = model.l;
 		
-			double[] kvalue = new double[l];
-// based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
-// #pragma omp parallel for private(i)
-			for(i=0;i<l;i++)
-				kvalue[i] = Kernel.k_function(x,model.SV[i],model.param);
+			final double[] kvalue = new double[l];
+			// parallel based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
+            // for(i=0;i<l;i++)
+			int perProc = l / PROC_COUNT;
+			final CountDownLatch latch = new CountDownLatch(PROC_COUNT);
+			for (i = 0; i < PROC_COUNT; i++) {
+				final int begin = i * perProc;
+				final int end = (i == PROC_COUNT - 1) ? l - 1 : (i + 1) * perProc - 1;
+				EXEC_SERV.submit(new Runnable() {
+                    public void run() {
+                        for (int j = begin; j <= end; j++) {
+                            kvalue[j] = Kernel.k_function(x,model.SV[j],model.param);
+                        }
+                        latch.countDown();
+                    }
+                });
+            }
+            try {
+                latch.await();
+            } catch (InterruptedException e) {
+                System.err.println("InterruptedException: " + e.getMessage());
+            }
 
 			int[] start = new int[nr_class];
 			start[0] = 0;
