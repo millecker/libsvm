@@ -7,7 +7,7 @@ FILES = libsvm/svm.class libsvm/svm_model.class libsvm/svm_node.class \
 #JAVAC = jikes
 JAVAC_FLAGS = -target 1.5 -source 1.5
 JAVAC = javac
-# JAVAC_FLAGS =
+JAVAC_FLAGS =
 
 all: $(FILES)
 	jar cvf libsvm.jar *.class libsvm/*.class
