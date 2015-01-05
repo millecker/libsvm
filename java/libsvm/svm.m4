@@ -1167,6 +1167,8 @@ class SVC_Q extends Kernel
 		int start, j;
 		if((start = cache.get_data(i,data,len)) < len)
 		{
+// based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
+#pragma omp parallel for private(j)
 			for(j=start;j<len;j++)
 				data[0][j] = (Qfloat)(y[i]*y[j]*kernel_function(i,j));
 		}
@@ -2345,6 +2347,8 @@ public class svm {
 			int l = model.l;
 		
 			double[] kvalue = new double[l];
+// based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
+#pragma omp parallel for private(i)
 			for(i=0;i<l;i++)
 				kvalue[i] = Kernel.k_function(x,model.SV[i],model.param);
 
