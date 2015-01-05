@@ -6,6 +6,8 @@ changecom(`//', )
 package libsvm;
 import java.io.*;
 import java.util.*;
+//TODO import org.slf4j.Logger;
+//TODO import org.slf4j.LoggerFactory;
 
 //
 // Kernel Cache
@@ -1168,7 +1170,7 @@ class SVC_Q extends Kernel
 		if((start = cache.get_data(i,data,len)) < len)
 		{
 // based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
-#pragma omp parallel for private(j)
+// #pragma omp parallel for private(j)
 			for(j=start;j<len;j++)
 				data[0][j] = (Qfloat)(y[i]*y[j]*kernel_function(i,j));
 		}
@@ -1298,6 +1300,8 @@ public class svm {
 	public static final int LIBSVM_VERSION=320; 
 	public static final Random rand = new Random();
 
+//TODO 	private static final Logger LOG = LoggerFactory.getLogger(svm.class);
+
 	private static svm_print_interface svm_print_stdout = new svm_print_interface()
 	{
 		public void print(String s)
@@ -1312,6 +1316,8 @@ public class svm {
 	static void info(String s) 
 	{
 		svm_print_string.print(s);
+//TODO LOG.info(s);
+//TODO LOG.printf(Level.INFO, s)
 	}
 
 	private static void solve_c_svc(svm_problem prob, svm_parameter param,
@@ -2348,7 +2354,7 @@ public class svm {
 		
 			double[] kvalue = new double[l];
 // based on http://www.csie.ntu.edu.tw/~cjlin/libsvm/faq.html#f432
-#pragma omp parallel for private(i)
+// #pragma omp parallel for private(i)
 			for(i=0;i<l;i++)
 				kvalue[i] = Kernel.k_function(x,model.SV[i],model.param);
 
