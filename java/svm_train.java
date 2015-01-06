@@ -116,6 +116,7 @@ class svm_train {
 	{
 		svm_train t = new svm_train();
 		t.run(argv);
+        svm.EXEC_SERV.shutdown();
 	}
 
 	private static double atof(String s)
